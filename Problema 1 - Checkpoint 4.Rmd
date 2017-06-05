@@ -29,6 +29,8 @@ As duas perguntas, e as outras duas identificadas a partir delas são:
 library(tidyverse, warn.conflicts = F)
 library(dplyr)
 library(ggplot2)
+library(plotly)
+
 
 ```
 
@@ -71,9 +73,10 @@ temporadas <- c(4, 2)
 
 maxmin <- data.frame(serie, variancias, temporadas)
 
-ggplot(maxmin, aes(serie, variancias, fill = as.factor(temporadas))) + labs(x = "Nome da Série", y = "Variância", fill = "Número de Temporadas") +
+p1 <- ggplot(maxmin, aes(serie, variancias, fill = as.factor(temporadas))) + labs(x = "Nome da Série", y = "Variância", fill = "Número de Temporadas") +
   geom_col()
 
+ggplotly(p1)
 show(maxmin)
 
 ```
@@ -81,7 +84,8 @@ show(maxmin)
 Observamos que, the 100 realmente possui mais temporadas que Narcos, no entanto sabemos que existem séries com mais temporadas que the 100 e que possuem menor variância, pois há séries no conjunto de dados com mais de 4 temporadas. Portanto não podemos afirmar ainda se o número de temporadas realmente influencia na regularidade da qualidade dos episódios. Além disso, sabemos que houve uma queda enorme na avaliação dos episódios de the 100 por conta da morte de uma personagem na terceira temporada, que movimentou as redes sociais, pois sua morte contribuiu para uma "trope" muito usada no meio televisivo que é a de matar personagens que são LGBT. Portanto temos que com a movimentação nas redes sociais muitas pessoas avaliaram mal a terceira temporada de the 100 em forma de protesto, assim podemos descartar a série, a considerando um outlier por conta desse boicote.
 
 ```{r}
-t100 <- dados %>% filter(series_name %in% c("The 100"))
+t100 <- dados %>% filter(series_name %in% c("The r100"))
+
 
 t100 %>%
   ggplot(aes(x = season_ep,y = UserRating, color="red")) + geom_line() + geom_point()+ facet_grid(series_name~season)+ labs(x= "Temporada da Série", y= "Nota do Usuário") + guides(color=FALSE)
@@ -105,7 +109,7 @@ ggplot(maxmin, aes(serie, variancias, fill = as.factor(temporadas))) +
 show(maxmin)
 ```
 
-Apesar da diferença gritante entre o número de temporadas ainda assim não podemos afirmar com certeza que esse fator influencia diretamente a regularidade da qualidade dos episódios, pois estamos apenas olhando os extremos. Tendo isso em mente dividimos o conjunto de dados entre as 16 séries com maior variância e as 16 com menor variância e observamos seu número de temporadas.
+Apesar da grande diferença entre o número de temporadas ainda assim não podemos afirmar com certeza que esse fator influencia diretamente a regularidade da qualidade dos episódios, pois estamos apenas olhando os extremos. Tendo isso em mente dividimos o conjunto de dados entre as 16 séries com maior variância e as 16 com menor variância e observamos seu número de temporadas.
 
 ```{r}
 mediana_variancia <- median(variancia$SeriesVariance)
