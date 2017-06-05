@@ -145,7 +145,7 @@ show(mediana_temporadas_irregular)
 
 ```
 
-Avaliando os gráficos e observando a mediana de temporadas entre as 16 séries com menor irregularidade de qualidade de episódios (4) e as 15 com maior irregularidade (5) podemos concluir que o número de temporadas tem uma certa influência sim sob a regularidade da qualidade dos episódios, porém não chega a ser tanta ao ponto de que podemos afirmar com certeza que séries com muitas temporadas tem uma tendência forte a serem mais irregulares, portanto a hipótese inicial foi descartada. 
+Avaliando os gráficos notamos que não há um real crescimento quando se observa o número de temporadas em relação a variância, juntando isso com a observação da mediana de temporadas entre as 16 séries com menor irregularidade de qualidade de episódios (4) e as 15 com maior irregularidade (5) podemos concluir que o número de temporadas tem pouca influência sob a regularidade da qualidade dos episódios, não podemos afirmar com certeza que séries com muitas temporadas tem uma tendência forte a serem mais irregulares, portanto a hipótese inicial foi descartada. 
 
 ### 1.1 - A série com qualidade mais regular é a mais bem avaliada?
 
