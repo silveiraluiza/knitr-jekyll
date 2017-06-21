@@ -162,7 +162,7 @@ ggplotly(p, width = 800, height = 500)
 
 ```
 
-Podemos visualizar 3 grupos distintos, onde o primeiro é composto de filmes cuja avaliação pela crítica se encontra perto de 75 pontos, o segundo possui filmes com avaliação entre 50 e 60 e o terceiro apresenta filmes com avaliação menor ou igual a 35. Podemos observar que os grupos foram semelhantes aqueles encontrados de maneira intuitiva.
+Podemos visualizar 3 grupos distintos, onde o primeiro é composto de filmes cuja avaliação pela crítica se encontra perto de 75 pontos, o segundo possui filmes com avaliação entre 50 e 62 e o terceiro apresenta filmes com avaliação menor ou igual a 35. Podemos observar que os grupos foram semelhantes aqueles encontrados de maneira intuitiva.
 
 ### Bilheteria
 
