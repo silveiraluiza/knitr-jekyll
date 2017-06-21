@@ -9,7 +9,7 @@ plota_hclusts_1d = function(dados_filme,
     library(dplyr, warn.conflicts = F)
     
     agrupamento_h = dados_filme %>% 
-        column_to_rownames("TITLE") %>% 
+        column_to_rownames("Titulo") %>% 
         select_(nome_coluna) %>%
         dist(method = dist_method) %>% 
         hclust(method = linkage_method)
