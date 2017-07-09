@@ -1,0 +1,330 @@
+---
+layout: post
+title:  "Problema 3 C1"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+published: true
+tags: [htmlwidgets, r]
+
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_code,message=FALSE, warning=FALSE}
+library(tidyverse, warn.conflicts = F)
+library(rvest)
+library(plotly)
+library(cluster)
+library(ggdendro)
+library(tibble)
+theme_set(theme_light())
+source("plota_solucoes_hclust.R")
+```
+
+# Tipos de filme de Angelina Jolie
+
+Usaremos dados do [Rotten Tomatoes](https://www.rottentomatoes.com) sobre os filmes de Angelina Jolie. 
+
+O código abaixo lê a tabela no html da página do rottentomatoes.com, extrai, limpa e organiza os dados em um tibble (que é um subtipo de data.frame). Os atributos do conjunto de dados são a avaliação de cada filme, o seu título, o papel que atriz fez no filme, o box office e o ano de lançamento do filme.
+
+```{r,message=FALSE, warning=FALSE}
+library(rvest)
+url = "https://www.rottentomatoes.com/celebrity/angelina_jolie/"
+download.file(url, destfile = "scrapedpage.html", quiet=TRUE)
+
+from_page <- read_html("https://www.rottentomatoes.com/celebrity/angelina_jolie/") %>% 
+    html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
+    html_table(fill=TRUE) %>% # Faz parse
+    as.tibble()
+
+filmes = from_page %>% 
+    filter(RATING != "No Score Yet", 
+           `BOX OFFICE` != "-", 
+           CREDIT != "Executive Producer") %>%
+    mutate(RATING = as.numeric(gsub("%", "", RATING)), 
+           `BOX OFFICE` = as.numeric(gsub("[$|M]", "", `BOX OFFICE`))) %>% 
+    filter(`BOX OFFICE` >= 1) # Para não pegar filmes que ainda não foram lançados
+
+names(filmes)[names(filmes)=="RATING"] <- "Avaliacao"
+names(filmes)[names(filmes)=="BOX OFFICE"] <- "Bilheteria"
+names(filmes)[names(filmes)=="TITLE"] <- "Titulo"
+
+```
+
+
+
+## A intuição
+
+### Avaliação
+
+Primeiramente iremos observar se podemos agrupar os dados utilizando apenas a intuição, visualizando se realmente existem grupos semelhantes entre si no nosso conjunto.
+
+Por exemplo, observando as avaliações dos filmes:
+
+
+``` {r,message=FALSE, warning=FALSE}
+filmes %>% 
+    ggplot(aes(x = Avaliacao)) + 
+    geom_histogram(bins = 16, fill = "#a24fa8" ) + 
+    geom_rug(color = "#aa61a1")
+
+```
+
+Podemos observar 4 grupos distintos ao visualizar o gráfico de avaliações dos filmes. Temos o primeiro grupo que é dos filmes com avaliação muito baixa, o segundo que condiz ao grupo que possui avaliação em torno dos 50 pontos, o terceiro que sempre está acima de 50 porém abaixo de 75 e o quarto grupo que é o de filmes com boas avaliações.
+
+Por esse gráfico podemos concluir que a maioria dos filmes de Angelina apresentados na sua página do Rotten Tomatoes não são aclamados pela crítica, a maior parte deles não chega a ter 75 pontos em sua avaliação.
+
+### Bilheteria 
+
+Para fazer o mesmo com a bilheteria do filme (ou box office), observamos que uma escala linear ou logarítmica levam a conclusões diferentes, portanto optamos por usar a escala logarítmica já que ela considera apenas diferenças muito grandes entre os números e assim facilita o agrupamento quando temos valores muito altos e que variam bastante.  
+
+```{r,message=FALSE, warning=FALSE}
+
+filmes %>% 
+    ggplot(aes(x = Bilheteria)) + 
+    geom_histogram(bins = 20, fill = "#6075af") + 
+    geom_rug(color = "#2c3e6d")
+```
+
+Não é possível definir grupos intuitivamente quando consideramos a bilheteria do filme em uma escala linear.
+
+```{r,message=FALSE, warning=FALSE}
+filmes %>% 
+    ggplot(aes(x = Bilheteria)) + 
+    geom_histogram(bins = 20, fill = "#7db8d1") + 
+    scale_x_log10() + 
+    geom_rug(color = "#466775")
+
+```
+
+Já quando utilizamos a escala logaritmica é possível definir 4 grupos, da esquerda para direita: os dos filmes que geraram lucro baixíssimo, filmes que geraram pouco lucro, filmes com lucro razoável, e filmes com lucro alto.
+
+Diante desses gráficos podemos afirmar que filmes com Angelina Jolie tendem a ter uma bilheteria de mediana para alta, sendo a maioria concentrada perto dos $100M de box office.
+
+## Agrupamento com uma dimensão
+
+### Avaliação
+
+Vamos agrupar os dados da maneira hierárquica aglomerativa levando em consideração a avaliação dos filmes. O algoritmo irá selecionar os filmes que mais se assemelham (levando em conta a sua avaliação) e juntá-los em grupos.
+
+```{r,message=FALSE, warning=FALSE}
+row.names(filmes) = NULL
+agrupamento_h = filmes %>% 
+    column_to_rownames("Titulo") %>% 
+    select(Avaliacao) %>%
+    dist(method = "euclidian") %>% 
+    hclust(method = "ward.D")
+
+ggdendrogram(agrupamento_h, rotate = T, size = 2) + 
+    geom_hline(yintercept = 45, colour = "red")
+```
+
+
+Cada junção é um passo do algoritmo. A altura na dendrograma em cada passo significa a dissimilaridade entre os pontos ou grupos juntados naquele passo. 
+
+Na medida que vamos aglomerando, as dissimilaridades nas junções tendem a ir aumentando caso haja estrutura de grupos. O ideal é obter grupos com pouca dissimilaridade, nesse caso é bom manter 3 grupos, pois a altura do dendograma aumenta bastante quando tentamos diminuir esse número, e mais grupos seriam desnecessários, pois causaria grupos muito semelhantes, assim teriamos informações repetitivas.
+
+
+Vejamos as soluções com diferentes números de grupos.
+
+```{r,message=FALSE, warning=FALSE}
+solucoes = tibble(k = 1:6)
+
+atribuicoes = solucoes %>% 
+    group_by(k) %>% 
+    do(cbind(filmes, 
+             grupo = as.character(cutree(agrupamento_h, .$k)))) 
+
+atribuicoes %>% 
+    ggplot(aes(x = "Filmes", y = Avaliacao, colour = grupo)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
+    facet_wrap(~ paste(k, " grupos"))
+
+```
+
+
+Agora a solução com 3 grupos, que foi o que obtivemos como ideal:
+
+```{r,message=FALSE, warning=FALSE}
+solucoes = tibble(k = 3)
+
+atribuicoes = solucoes %>% 
+    group_by(k) %>% 
+    do(cbind(filmes, 
+             grupo = as.character(cutree(agrupamento_h, .$k)))) 
+
+
+p <- atribuicoes %>% 
+    ggplot(aes(x = "Filmes", y = Avaliacao, colour = grupo, text = Titulo)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
+    facet_wrap(~ paste(k, " grupos"))
+
+ggplotly(p, width = 800, height = 500)
+
+```
+
+Podemos visualizar 3 grupos distintos, onde o primeiro é composto de filmes cuja avaliação pela crítica se encontra perto de 75 pontos, o segundo possui filmes com avaliação entre 50 e 62 e o terceiro apresenta filmes com avaliação menor ou igual a 35. Podemos observar que os grupos foram semelhantes aqueles encontrados de maneira intuitiva.
+
+### Bilheteria
+
+Agora os grupos serão feitos considerando a bilheteria dos filmes em escala logarítmica. Primeiro será criado o dendograma, nesse caso foi observado que 3 grupos também seria o ideal, apesar de que as dissimilaridades desses grupos são maiores do que as dos criados levando em consideração as avaliações dos filmes.
+
+```{r,message=FALSE, warning=FALSE}
+row.names(filmes) = NULL
+
+
+agrupamento_h = filmes %>% mutate(Bilheteria = log(Bilheteria)) %>% 
+    column_to_rownames("Titulo") %>% 
+    select(Bilheteria) %>%
+    dist(method = "euclidian") %>% 
+    hclust(method = "ward.D")
+
+ggdendrogram(agrupamento_h, rotate = T, size = 2) + 
+    geom_hline(yintercept = 4.5, colour = "red")
+```
+
+Vejamos as soluções com diferentes números de grupos.
+
+```{r,message=FALSE, warning=FALSE}
+
+filmes %>% mutate(Bilheteria = log(Bilheteria)) %>% 
+    plota_hclusts_1d("Bilheteria", linkage_method = "centroid", ks = 1:6) + 
+    scale_y_log10()
+```
+Observamos que as soluções com 3 ou 4 grupos são boas soluções, que dividem bem os dados.
+
+```{r,message=FALSE, warning=FALSE}
+
+filmes %>% mutate(Bilheteria = log(Bilheteria)) %>% 
+    plota_hclusts_1d("Bilheteria", linkage_method = "centroid", ks = 3:4) + 
+    scale_y_log10()
+
+```
+
+Os primeiros grupos são compostos por filmes com box office mais elevado, enquanto os outros são grupos de filmes com bilheteria mais baixa.
+
+## Silhouetas
+
+Verificamos se um agrupamento é adequado (ou útil) observando seu gráfico de silhouetas.
+
+Dada a distância média de um ponto para os demais do seu cluster(ou grupo) $a(i)$ e a distância média do ponto para todos os demais do cluster mais próximo $b(i)$, a largura da silhoueta de $i$ é : 
+
+\[
+s(i) := ( b(i) - a(i) ) / max( a(i), b(i) )
+\]
+
+1 significa uma boa atribuição para $i$, 0 significa indefinição e $-1$ significa que há outro cluster onde $i$ estaria melhor alocado.
+
+Abaixo mostraremos os gráficos de silhouetas do agrupamento feito levando em consideração a avalição dos filmes.
+
+```{r,message=FALSE, warning=FALSE}
+distancias = filmes %>% 
+    select(Avaliacao) %>%
+    dist(method = "euclidean")
+
+agrupamento_hs = filmes %>% 
+    column_to_rownames("Titulo") %>%
+    select(Avaliacao) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "complete")
+
+cores = RColorBrewer::brewer.pal(4, "Set2")
+
+plot(silhouette(cutree(agrupamento_hs, k = 4), distancias), col = cores, border = NA)
+
+cores = RColorBrewer::brewer.pal(3, "Set3")
+
+plot(silhouette(cutree(agrupamento_hs, k = 3), distancias), col = cores, border = NA)
+```
+
+Visualizando os gráficos de silhouetas podemos observar que a escolha de 3 grupos ao invés de 4 é justificada, pois os valores de $i$ estão mais próximos de 1 do que se fosse utilizado um agrupamento com 4 clusters.
+
+## Duas dimensões
+
+Primeiro apresentaremos o gráfico dos filmes considerando sua avaliação e bilheteria:
+
+```{r,message=FALSE, warning=FALSE}
+p = filmes %>% 
+    ggplot(aes(x = Avaliacao, y = Bilheteria, color = Titulo)) + 
+    geom_point() + theme(legend.position="none")
+
+
+ggplotly(p, width = 800, height = 500)
+```
+
+Agora será criado o dendograma, que usará um algoritmo para agrupar os filmes de acordo com o box office em escala logarítmica e a avaliação.
+
+```{r,message=FALSE, warning=FALSE}
+agrupamento_h_2d = filmes %>% 
+    column_to_rownames("Titulo") %>%
+    select(Avaliacao, Bilheteria) %>% 
+    mutate(Bilheteria = log10(Bilheteria)) %>% 
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean") %>% 
+    hclust(method = "centroid")
+
+ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+
+```
+
+Como sempre, o algoritmo encontra grupos.  Vamos visualizá-los:
+
+```{r,message=FALSE, warning=FALSE}
+
+
+filmes2 = filmes %>% mutate(Bilheteria = log10(Bilheteria))
+plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes2, 
+                 c("Avaliacao", "Bilheteria"), 'Titulo',
+                 linkage_method = "ward.D", ks = 1:6) + scale_y_log10()
+```
+
+Compararemos as silhouetas do agrupamento com 4 clusters e 5 clusters:
+
+```{r,message=FALSE, warning=FALSE}
+distancias = filmes %>% 
+    column_to_rownames("Titulo") %>%
+    select(Avaliacao, Bilheteria) %>% 
+    mutate(Bilheteria = log10(`Bilheteria`)) %>% 
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean")
+
+cores = RColorBrewer::brewer.pal(4, "Set3")
+plot(silhouette(cutree(agrupamento_h_2d, k = 4), distancias), col = cores, border = NA)
+
+cores = RColorBrewer::brewer.pal(5, "Set2")
+plot(silhouette(cutree(agrupamento_h_2d, k = 5), distancias), col = cores, border = NA)
+
+```
+
+Dessa forma temos que o $i$ se encontra ligeiramente mais próximo de 1 quando se tem 5 grupos, por conta disso e por ser mais fácil de classifica-los assim usaremos esse agrupamento.
+
+```{r,message=FALSE, warning=FALSE}
+names(filmes)[names(filmes)=="Bilheteria"] <- "LogBilheteria"
+
+filmes2 = filmes %>% mutate(LogBilheteria = log10(LogBilheteria))
+
+p1 <- plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes2, 
+                 c("Avaliacao", "LogBilheteria"),
+                 'Titulo',
+                 linkage_method = "ward.D", ks = 5) + scale_y_log10()
+
+
+ggplotly(p1, width = 800, height = 500) 
+
+
+```
+
+Assim podemos dividir os filmes em que Angelina Jolie participou em 5 grupos. 
+
+1. Alta bilheteria e avaliação mediana ou mediocre, não são filmes aclamados pela crítica porém também não são ditos filmes ruins, no entanto eles possuem uma box office elevada, Maléfica (2014) e Sr. e Sra. Smith (2005) são exemplos de filmes que se encaixam bem nesse grupo, ambos tem avaliações mediocres, 50 e 59 respectivamente, porém suas bilheterias são elevadas, sendo maiores que $180M.
+
+2. Bilheteria média e avaliação média ou mediocre. The Good Shepherd (2006), que possui avaliação de 54 pontos, e Changeling (2008), com avaliação de 64 pontos, são exemplos de filmes que pertencem a esse grupo, ambos possuem box office menor que 85M e maior que 35M.
+
+3. Filmes "ruins" de acordo com a crítica, todos possuem pontuação menor ou igual a 35, porém com bilheteria elevada, sendo o menor box office de 65.8M.  Entre eles estão Lara Croft Tomb Raider - A Origem da Vida (2003) e Lara Croft Tomb Raider (2001), ambos realmente são filmes considerados "ruins", no entanto renderam muito por serem adaptações cinematográficas de uma franquia de jogos famosa até hoje, que é a de Tomb Raider.
+
+4. Filmes considerados "muito ruins", com menos de 28 pontos em sua avaliação, a maioria estando abaixo de 22 pontos, e que também não foram sucesso de vendas. Seu maior box office foi de 34.6M. Entre os integrantes desse grupo estão Alexander (2004) e Taking Lives (2004).
+
+5. É composto por apenas um filme, que é um fracasso em sua avaliação e na sua bilheteria. Beyond Borders (2003) possui uma avaliação de 14 pontos apenas e sua bilheteria foi de 4.4M, sendo está a menor bilheteria de qualquer filme com Angelina Jolie.

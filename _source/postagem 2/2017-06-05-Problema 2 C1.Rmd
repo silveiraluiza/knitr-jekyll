@@ -175,9 +175,9 @@ mediana_temporadas_regular <- median(var2$Temporadas)
 mediana_temporadas_irregular <- median(var1$Temporadas)
 
 #Qualidade mais regular
-show(mediana_temporadas_regular)
+mediana_temporadas_regular
 #Qualidade menos regular
-show(mediana_temporadas_irregular)
+mediana_temporadas_irregular
 
 ```
 

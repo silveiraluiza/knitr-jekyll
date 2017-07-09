@@ -79,7 +79,7 @@ p1 <- ggplot(maxmin, aes(serie, variancias, fill = as.factor(temporadas))) + lab
   geom_col()
 
 ggplotly(p1)
-show(maxmin)
+maxmin
 
 ```
 
@@ -108,7 +108,7 @@ maxmin <- data.frame(serie, variancias, temporadas)
 ggplot(maxmin, aes(serie, variancias, fill = as.factor(temporadas))) +
   geom_col() + labs(x = "Nome da Série", y = "Variância", fill = "Número de Temporadas")
 
-show(maxmin)
+maxmin
 ```
 
 Apesar da grande diferença entre o número de temporadas ainda assim não podemos afirmar com certeza que esse fator influencia diretamente a regularidade da qualidade dos episódios, pois estamos apenas olhando os extremos. Tendo isso em mente dividimos o conjunto de dados entre as 16 séries com maior variância e as 16 com menor variância e observamos seu número de temporadas.
@@ -145,9 +145,9 @@ mediana_temporadas_regular <- median(var2$N_temporadas)
 mediana_temporadas_irregular <- median(var1$N_temporadas)
 
 #Qualidade mais regular
-show(mediana_temporadas_regular)
+mediana_temporadas_regular
 #Qualidade menos regular
-show(mediana_temporadas_irregular)
+mediana_temporadas_irregular
 
 ```
 
