@@ -1,0 +1,184 @@
+---
+layout: post
+title:  "Problema 2 C1"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+published: true
+tags: [htmlwidgets, r]
+
+---
+```{r setup, include=FALSE, warning=FALSE, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(htmlwidgets)
+library(dplyr)
+library(plotly)
+library(ggplot2)
+```
+
+Baseado em uma visualização que você já fez (ou gostaria de ter feito) no problema 1, você deve produzir um novo relatório com visualizações interativas (usando htmlwidgets). Imagine que esse relatório será um post em um blog seu de análise de dados. Ele deve ser curto, a linguagem não precisa ser muito formal, deve ser interessante para qualquer pessoa que goste de séries, e deve ser rigoroso na análise.
+
+## Descrevendo os dados
+
+O conjunto de dados que está sendo utilizado é composto por séries, nos dados estão: o nome da série, o número de cada episódio, a que temporada ele pertence, seu número na temporada, sua url para a página no IMDB, o nome do episódio, sua nota individual e o número de votações de usuários, também por episódio, todas essas informações estão disponíveis no IMDB. Nem todas as informações que estão no conjunto de dados serão utilizadas nessa análise, as variáveis que são o foco deste estudo são os nomes das séries, suas notas por episódio, os nomes e a temporada de cada episódio. As séries utilizadas no conjunto de dados e os nomes das variáveis descritas acima são:
+
+``` {r, warning=FALSE, echo=FALSE, message=FALSE}
+
+# importando os dados
+dados <- read.csv('series_from_imdb.csv')
+dados$UserRating  <- dados$UserRating / 10
+
+#séries
+unique(dados$series_name)
+
+# variáveis
+names(dados)
+
+```
+
+##Séries com maior número de temporadas tendem a ter qualidade mais irregular de episódios? 
+
+Foi suposto que quanto maior uma série mais difícil se torna manter os episódios com qualidade parecida. Para verificar se essa suposição é verdadeira foi calculada a variância de cada uma das 32 séries, a variância é uma medida de dispersão que mostra quão distantes os valores estão da média. Quanto maior a variância, mais irregular uma série é. Após ter sido feito isso pôde se verificar que a série com maior variância é The 100 (com aproximandamente 0.7 de variância) e Narcos é a que possui a menor variância, sendo está 0.06.
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+
+# criando um data frame para as variancias
+
+variancia <-group_by(dados, series_name) %>% 
+      summarise(SeriesVariance=var(rep(UserRating)), N_temporadas=max(season))
+
+# Mostrando os dois extremos
+
+serie <- c("The 100", "Narcos")
+variancias <- c(max(variancia$SeriesVariance), min(variancia$SeriesVariance))
+temporadas <- c(4, 2)
+
+maxmin <- data.frame(serie, variancias, temporadas)
+
+plot_ly(maxmin,
+        x = ~serie,
+        y = ~variancias,
+        text = ~paste('N temporadas: ', temporadas),
+        color = as.factor(temporadas), 
+        type = 'bar') %>%
+  layout(
+        xaxis = list(title = "Série"),
+        yaxis = list(title = "Variância"))
+
+```
+
+Observamos que, the 100 realmente possui mais temporadas que Narcos, no entanto sabemos que existem séries com mais temporadas que The 100 e que possuem menor variância, pois há séries no conjunto de dados com mais de 4 temporadas. Portanto não podemos afirmar ainda se o número de temporadas realmente influencia na regularidade da qualidade dos episódios. Além disso, sabemos que houve uma queda enorme na avaliação dos episódios de The 100 por conta da morte de uma personagem no sétimo episódio da terceira temporada, que movimentou as redes sociais, pois sua morte contribuiu para uma ["trope"](http://tvtropes.org/pmwiki/pmwiki.php/Main/Trope) muito usada no meio televisivo que é a de [matar personagens que são LGBT](http://tvtropes.org/pmwiki/pmwiki.php/Main/BuryYourGays). Portanto temos que com a movimentação nas redes sociais muitas pessoas avaliaram mal a terceira temporada de the 100 em forma de protesto, assim podemos descartar a série, a considerando um outlier por conta desse boicote.
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+t100 <- dados %>% filter(series_name %in% c("The 100"))
+
+names(t100)[names(t100)=="UserRating"] <- "Nota"
+names(t100)[names(t100)=="season_ep"] <- "Episodio"
+names(t100)[names(t100)=="Episode"] <- "NomeEp"
+
+## px <- t100 %>%
+##  ggplot(aes(x =Episodio ,y = Nota)) + facet_grid(series_name~season)+ labs(x= "Temporada da Série", y= "Nota do Usuário") + geom_point(color="#f44256") + geom_line(color= "#f44256")
+
+## ggplotly(px)
+
+t101 <- t100 %>% filter(season == 1)
+t102 <- t100 %>% filter(season == 2)
+t103 <- t100 %>% filter(season == 3)
+t104 <- t100 %>% filter(season == 4)
+
+p1 <- plot_ly(t101, x = ~Episodio, y = ~Nota, type = "scatter" ,mode = 'lines+markers', name = "Temporada 1",hoverinfo = 'text',
+        text = ~paste('Episodio: ', NomeEp, '| N: ', Episodio, '| Nota: ', Nota))  %>%
+  layout( yaxis = list(range = c(5.5,10)), autosize = F, width = 1000, height = 500)
+
+p2 <- plot_ly(t102, x = ~Episodio, y = ~Nota, type = "scatter" ,mode = 'lines+markers', name = "Temporada 2",hoverinfo = 'text',
+         text = ~paste('Episodio: ', NomeEp, '| N: ', Episodio, '| Nota: ', Nota)) %>%
+  layout( yaxis = list(range = c(5.5,10)), autosize = F, width = 1000, height = 500)
+
+p3 <- plot_ly(t103, x = ~Episodio, y = ~Nota, type = "scatter" ,mode = 'lines+markers', name = "Temporada 3",hoverinfo = 'text',
+         text = ~paste('Episodio: ', NomeEp, '| N: ', Episodio, '| Nota: ', Nota)) %>%
+  layout( yaxis = list(range = c(5.5,10)), autosize = F, width = 1000, height = 500)
+p4 <- plot_ly(t104, x = ~Episodio, y = ~Nota, type = "scatter" ,mode = 'lines+markers', name = "Temporada 4",hoverinfo = 'text',
+        text = ~paste('Episodio: ', NomeEp, '| N: ', Episodio, '| Nota: ', Nota)) %>%
+  layout( yaxis = list(range = c(5.5,10)), autosize = F, width = 1000, height = 500)
+subplot(p1, p2, p3, p4)
+
+
+
+```
+O gráfico acima ilustra as avaliações por episódio de The 100, ele está dividido em temporadas, a queda brusca nas avaliações dos episódios ocorreu justamente em thirteen, o sétimo episódio da terceira temporada. Assim usaremos a segunda série com maior variância para comparar com Narcos, que é The Simpsons, ela possui 0.54 de variância e tem 28 temporadas.
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+# Mostrando os dois extremos
+
+serie <- c("The Simpsons", "Narcos")
+variancias <- c(0.5427355, min(variancia$SeriesVariance))
+temporadas <- c(28, 2)
+
+maxmin <- data.frame(serie, variancias, temporadas)
+
+plot_ly(maxmin,
+        x = ~serie,
+        y = ~variancias,
+        text = ~paste('N temporadas: ', temporadas),
+        color = as.factor(temporadas), 
+        type = 'bar') %>%
+  layout(
+        xaxis = list(title = "Série"),
+        yaxis = list(title = "Variância"))
+
+```
+
+Apesar da grande diferença entre o número de temporadas ainda assim não podemos afirmar com certeza que esse fator influencia diretamente a regularidade da qualidade dos episódios, pois estamos apenas olhando os extremos. Tendo isso em mente dividimos o conjunto de dados entre as 16 séries com maior variância e as 16 com menor variância e observamos seu número de temporadas.
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+mediana_variancia <- median(variancia$SeriesVariance)
+
+var1 <- variancia %>% filter(SeriesVariance >= mediana_variancia)
+
+
+var2 <- variancia %>% filter(SeriesVariance < mediana_variancia)
+
+names(var1)[names(var1)=="SeriesVariance"] <- "Variancia"
+names(var1)[names(var1)=="N_temporadas"] <- "Temporadas"
+names(var1)[names(var1)=="series_name"] <- "Serie"
+
+names(var2)[names(var2)=="SeriesVariance"] <- "Variancia"
+names(var2)[names(var2)=="N_temporadas"] <- "Temporadas"
+names(var2)[names(var2)=="series_name"] <- "Serie"
+
+
+
+p2 <- ggplot(var2, aes(Variancia, Temporadas, fill = Serie)) + labs(y= "Número de Temporadas", x= "Variância", title = "Séries com Qualidade mais Regular", fill = "Nomes das séries") +
+   geom_col() + geom_point(color= 'gray')
+
+ggplotly(p2, width = 1000, height = 483)
+
+p3 <- ggplot(var1, aes(Variancia, Temporadas, fill = Serie)) + labs(y= "Número de Temporadas", x= "Variância", title = "Séries com Qualidade mais Irregular", fill = "Nomes das séries") +
+  geom_col() +geom_point(color= 'gray')
+
+ggplotly(p3, width = 1000, height = 483)
+
+```
+Pelos gráficos podemos observar que 5 séries (31.25%) das séries com a variância mais baixa possuem um número de temporadas igual ou maior que 5, enquanto isso, dentre as séries com maior variância temos que 9 (56.25%) possuem 5 ou mais temporadas, ao retirar The 100, que foi considerado um outlier, a porcentagem de séries com maior variância e que possuem 5 ou mais temporadas sobe para 60%.
+
+Abaixo será mostrado o gráfico das séries com maior variância sem The 100. Além disso observaremos a mediana de temporadas das 16 séries com qualidade mais regular e das 15 séries (pois the 100 foi removida) com qualidade mais irregular. 
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+
+var1 <- var1 %>% filter(Serie != "The 100")
+
+p3 <- ggplot(var1, aes(Variancia, Temporadas, fill = Serie)) + labs(y= "Número de Temporadas", x= "Variância", title = "Séries com Qualidade mais Irregular", fill = "Nomes das séries") +
+   geom_col() + geom_point(color= 'gray')
+
+ggplotly(p3, width = 1000, height = 483)
+
+mediana_temporadas_regular <- median(var2$Temporadas)
+mediana_temporadas_irregular <- median(var1$Temporadas)
+
+#Qualidade mais regular
+show(mediana_temporadas_regular)
+#Qualidade menos regular
+show(mediana_temporadas_irregular)
+
+```
+
+Avaliando os gráficos notamos que não há um real crescimento quando se observa o número de temporadas em relação a variância, juntando isso com a observação da mediana de temporadas entre as 16 séries com menor irregularidade de qualidade de episódios (4) e as 15 com maior irregularidade (5) podemos concluir que o número de temporadas tem pouca influência sob a regularidade da qualidade dos episódios, não podemos afirmar com certeza que séries com muitas temporadas tem uma tendência forte a serem mais irregulares, portanto a hipótese inicial foi descartada. 

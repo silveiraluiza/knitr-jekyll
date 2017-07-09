@@ -1,0 +1,14 @@
+# Site settings
+title: Análise de Dados
+email: luiza.silveira@ccc.ufcg.edu.br
+description: > # this means to ignore newlines until "baseurl:"
+  Site criado para visualizar as análises de dados feitas na disciplina de Análise de Dados 1, ministrada pelo professor Nazareno em 2017.1 na UFCG
+
+baseurl: "/portfolioanalise/"
+url: "https://silveiraluiza.github.io/portfolioanalise" # the base hostname & protocol for your site
+twitter_username: holyfishstickss
+github_username:  silveiraluiza
+permalink: /:year/:month/:title.html
+
+# Build settings
+markdown: kramdown
